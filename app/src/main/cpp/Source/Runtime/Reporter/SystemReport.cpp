@@ -2,14 +2,14 @@
 
 #include <Log/Log.h>
 
-SystemReport::SystemReport(const std::string_view &report) : m_report(report) {
+SystemReport::SystemReport(const std::string_view &report) : mReport(report) {
 
 }
 
 bool SystemReport::IsExitRequested() {
-    if(!m_report.empty())
+    if(!mReport.empty())
     {
-        Log::Fatal("{}", m_report);
+        Log::Fatal("{}", mReport);
         return true;
     }
 

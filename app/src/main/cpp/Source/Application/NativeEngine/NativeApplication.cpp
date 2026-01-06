@@ -1,5 +1,7 @@
 #include "NativeApplication.h"
 
+#include <Runtime/Graphics/Instance/VInstance.h>
+
 #include <game-activity/native_app_glue/android_native_app_glue.h>
 #include <game-activity/GameActivity.h>
 
@@ -7,7 +9,7 @@
 
 #include <thread>
 
-NativeApplication::NativeApplication(android_app *pApp) : m_mainApp(pApp) {
+NativeApplication::NativeApplication(android_app *pApp) : mMainApp(pApp) {
 }
 
 bool NativeApplication::OnInvalidate() {
@@ -15,15 +17,17 @@ bool NativeApplication::OnInvalidate() {
 }
 
 SystemReport NativeApplication::OnInitialize() {
-    if (!m_mainApp) {
+    if (!mMainApp) {
         Log::Fatal("MainApplication has not set for engine!");
         return SystemReport("Exiting due to not having android_app*");
     }
 
-    m_mainApp->onAppCmd = HandleCommand;
-    android_app_set_motion_event_filter(m_mainApp, MotionFilterEvent);
+    mMainApp->onAppCmd = HandleCommand;
+    android_app_set_motion_event_filter(mMainApp, MotionFilterEvent);
 
     Log::Verbose("Successfully initialized NativeApplication!");
+
+    VInstance* pInstance = new VInstance();
     return SystemReport();
 }
 
@@ -84,15 +88,15 @@ void NativeApplication::OnRun() {
                     break;
                 default:
                     if (pSource) {
-                        pSource->process(m_mainApp, pSource);
+                        pSource->process(mMainApp, pSource);
                     }
             }
         }
 
         // Check if any user data is associated. This is assigned in handle_cmd
-        if (m_mainApp->userData) {
+        if (mMainApp->userData) {
         }
 
         std::this_thread::sleep_for(std::chrono::milliseconds(16));
-    } while (!m_mainApp->destroyRequested);
+    } while (!mMainApp->destroyRequested);
 }

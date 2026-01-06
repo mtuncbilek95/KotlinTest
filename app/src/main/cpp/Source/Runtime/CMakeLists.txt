@@ -6,3 +6,6 @@ add_library(Runtime STATIC ${SUBDIRECTORIES})
 
 target_include_directories(Runtime PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(Runtime PUBLIC EGL GLESv3 jnigraphics android log)
+
+find_library(vulkan-lib vulkan)
+target_link_libraries(Runtime PUBLIC ${vulkan-lib})

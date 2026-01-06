@@ -11,5 +11,5 @@ public:
     bool IsExitRequested();
 
 private:
-    std::string_view m_report;
+    std::string_view mReport;
 };

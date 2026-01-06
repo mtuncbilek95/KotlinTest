@@ -18,6 +18,18 @@ android {
     kotlinCompilerExtensionVersion = "1.5.1"
   }
 
+  sourceSets {
+    getByName("main") {
+      jniLibs.srcDir("${android.ndkDirectory}/sources/third_party/vulkan/src/build-android/jniLibs")
+    }
+  }
+
+  packaging {
+    jniLibs {
+      pickFirst("**/libVkLayer_khronos_validation.so")
+    }
+  }
+
   defaultConfig {
     applicationId = "com.example.kotlintest"
     minSdk = 35

@@ -21,5 +21,5 @@ private:
     static bool MotionFilterEvent(const GameActivityMotionEvent* pEvent);
 
 private:
-    android_app* m_mainApp;
+    android_app* mMainApp;
 };
