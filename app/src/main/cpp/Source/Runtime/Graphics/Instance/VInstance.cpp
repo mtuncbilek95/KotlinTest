@@ -123,7 +123,7 @@ VInstance::VInstance() : mInstance(nullptr), mVideoCard(nullptr) {
     createInfo.enabledLayerCount = static_cast<uint32_t>(workingLayers.size());
     createInfo.ppEnabledLayerNames = workingLayers.data();
 
-    VAssert::VkAssert(vkCreateInstance(&createInfo, nullptr, &mInstance), "`VInstance`");
+    VAssert::VkAssert(vkCreateInstance(&createInfo, nullptr, &mInstance), "VInstance");
     Log::Verbose("VkInstance created successfully!");
 
     volkLoadInstance(mInstance);
@@ -144,14 +144,14 @@ VInstance::VInstance() : mInstance(nullptr), mVideoCard(nullptr) {
 #endif
 
     uint32_t deviceCount = 0;
-    VAssert::VkAssert(vkEnumeratePhysicalDevices(mInstance, &deviceCount, nullptr), "GfxVkInstance");
+    VAssert::VkAssert(vkEnumeratePhysicalDevices(mInstance, &deviceCount, nullptr), "VInstance");
 
     // Temporary struct to hold the device and its score
     std::unordered_map<std::string, std::pair<VkPhysicalDevice, uint32_t>> allDevices;
 
     // Get the physical devices
     std::vector<VkPhysicalDevice> devices(deviceCount);
-    VAssert::VkAssert(vkEnumeratePhysicalDevices(mInstance, &deviceCount, devices.data()), "GfxVkInstance");
+    VAssert::VkAssert(vkEnumeratePhysicalDevices(mInstance, &deviceCount, devices.data()), "VInstance");
 
     for (auto& device : devices)
     {
