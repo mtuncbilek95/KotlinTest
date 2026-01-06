@@ -1,10 +1,9 @@
-#include "VInstance.h"
+#include "GfxInstance.h"
+
+#include <Runtime/Graphics/Assert/VAssert.h>
+#include <Runtime/Log/Log.h>
 
 #include <unordered_map>
-
-#include <Log/Log.h>
-#include <Graphics/Assert/VAssert.h>
-#include <Graphics/Volk/volk.h>
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
                                                     VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
@@ -29,20 +28,18 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(VkDebugUtilsMessageSeverityF
     return false;
 }
 
-VInstance::VInstance() : mInstance(nullptr), mVideoCard(nullptr) {
-    VAssert::VkAssert(volkInitialize(), "VInstance");
-
+GfxInstance::GfxInstance(const GfxInstanceDesc &desc)  : mInstance(VK_NULL_HANDLE), mPhysicalDevice(VK_NULL_HANDLE) {
 #if defined(ENGINE_DEBUG)
     mDebugMessenger = VK_NULL_HANDLE;
 #endif
 
     struct ExtensionEntry {
-        const char *name;
+        std::string_view name;
         bool support;
     };
 
     std::vector<ExtensionEntry> extensions;
-    std::vector<const char *> workingExtensions;
+    std::vector<std::string_view> workingExtensions;
 
     extensions.push_back({VK_KHR_SURFACE_EXTENSION_NAME, false});
     extensions.push_back({VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, false});
@@ -63,7 +60,7 @@ VInstance::VInstance() : mInstance(nullptr), mVideoCard(nullptr) {
 
     for (size_t i = 0; i < extensions.size(); ++i) {
         for (auto &extension: allExtensions) {
-            if (strcmp(extensions[i].name, extension.extensionName) == 0) {
+            if (strcmp(extensions[i].name.data(), extension.extensionName) == 0) {
                 extensions[i].support = true;
                 workingExtensions.push_back(extensions[i].name);
                 break;
@@ -83,7 +80,7 @@ VInstance::VInstance() : mInstance(nullptr), mVideoCard(nullptr) {
     VAssert::VkAssert(vkEnumerateInstanceLayerProperties(&layerCount, allLayers.data()), "VInstance");
 
     std::vector<ExtensionEntry> wantedLayers;
-    std::vector<const char *> workingLayers;
+    std::vector<std::string_view> workingLayers;
 
 #if defined(ENGINE_DEBUG)
     wantedLayers.push_back({"VK_LAYER_KHRONOS_validation", false});
@@ -93,7 +90,7 @@ VInstance::VInstance() : mInstance(nullptr), mVideoCard(nullptr) {
 
     for (size_t i = 0; i < wantedLayers.size(); ++i) {
         for (auto &layer: allLayers) {
-            if (strcmp(wantedLayers[i].name, layer.layerName) == 0) {
+            if (strcmp(wantedLayers[i].name.data(), layer.layerName) == 0) {
                 wantedLayers[i].support = true;
                 workingLayers.push_back(wantedLayers[i].name);
                 break;
@@ -107,21 +104,32 @@ VInstance::VInstance() : mInstance(nullptr), mVideoCard(nullptr) {
             Log::Warn("Layer not supported: {}", layer.name);
     }
 
+    // Unnecessary fun. I like being cunt.
+    std::vector<const char*> extPtrs;
+    extPtrs.reserve(workingExtensions.size());
+    for(auto sv : workingExtensions)
+        extPtrs.emplace_back(sv.data());
+
+    std::vector<const char*> layerPtrs;
+    layerPtrs.reserve(workingLayers.size());
+    for(auto sv : workingLayers)
+        extPtrs.emplace_back(sv.data());
+
     VkApplicationInfo appInfo = {};
     appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-    appInfo.pApplicationName = "Testing Android";
-    appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-    appInfo.pEngineName = "Testing Android";
-    appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-    appInfo.apiVersion = VK_API_VERSION_1_1;
+    appInfo.pApplicationName = desc.appName.data();
+    appInfo.applicationVersion = desc.appVersion;
+    appInfo.pEngineName = desc.engineName.data();
+    appInfo.engineVersion = desc.engineVersion;
+    appInfo.apiVersion = desc.apiVersion;
 
     VkInstanceCreateInfo createInfo = {};
     createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     createInfo.pApplicationInfo = &appInfo;
-    createInfo.enabledExtensionCount = static_cast<uint32_t>(workingExtensions.size());
-    createInfo.ppEnabledExtensionNames = workingExtensions.data();
-    createInfo.enabledLayerCount = static_cast<uint32_t>(workingLayers.size());
-    createInfo.ppEnabledLayerNames = workingLayers.data();
+    createInfo.enabledExtensionCount = static_cast<uint32_t>(extPtrs.size());
+    createInfo.ppEnabledExtensionNames = extPtrs.data();
+    createInfo.enabledLayerCount = static_cast<uint32_t>(layerPtrs.size());
+    createInfo.ppEnabledLayerNames = layerPtrs.data();
 
     VAssert::VkAssert(vkCreateInstance(&createInfo, nullptr, &mInstance), "VInstance");
     Log::Verbose("VkInstance created successfully!");
@@ -130,17 +138,17 @@ VInstance::VInstance() : mInstance(nullptr), mVideoCard(nullptr) {
 
 #if defined(ENGINE_DEBUG)
     VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo = {};
-        debugCreateInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-        debugCreateInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
-            VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT |
-            VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
-            VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-        debugCreateInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
-            VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-        debugCreateInfo.pfnUserCallback = DebugCallback;
-        debugCreateInfo.pUserData = nullptr;
+    debugCreateInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+    debugCreateInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
+                                      VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT |
+                                      VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+                                      VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+    debugCreateInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+                                  VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+    debugCreateInfo.pfnUserCallback = DebugCallback;
+    debugCreateInfo.pUserData = nullptr;
 
-        VAssert::VkAssert(vkCreateDebugUtilsMessengerEXT(mInstance, &debugCreateInfo, nullptr, &mDebugMessenger), "GfxVkInstance");
+    VAssert::VkAssert(vkCreateDebugUtilsMessengerEXT(mInstance, &debugCreateInfo, nullptr, &mDebugMessenger), "GfxVkInstance");
 #endif
 
     uint32_t deviceCount = 0;
@@ -153,8 +161,7 @@ VInstance::VInstance() : mInstance(nullptr), mVideoCard(nullptr) {
     std::vector<VkPhysicalDevice> devices(deviceCount);
     VAssert::VkAssert(vkEnumeratePhysicalDevices(mInstance, &deviceCount, devices.data()), "VInstance");
 
-    for (auto& device : devices)
-    {
+    for (auto &device: devices) {
         // Get the device properties
         VkPhysicalDeviceProperties deviceProperties = {};
         vkGetPhysicalDeviceProperties(device, &deviceProperties);
@@ -175,9 +182,9 @@ VInstance::VInstance() : mInstance(nullptr), mVideoCard(nullptr) {
         vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilyProperties.data());
 
         // Hold device on allDevices
-        allDevices[deviceProperties.deviceName] = { device, 0 };
+        allDevices[deviceProperties.deviceName] = {device, 0};
 
-        for (auto& queueFamily : queueFamilyProperties)
+        for (auto &queueFamily: queueFamilyProperties)
             allDevices[deviceProperties.deviceName].second += queueFamily.queueCount;
 
         // Check if the device is discrete
@@ -193,15 +200,23 @@ VInstance::VInstance() : mInstance(nullptr), mVideoCard(nullptr) {
 
     // Get the best device
     auto bestDevice = std::max_element(allDevices.begin(), allDevices.end(),
-                                       [](const std::pair<std::string, std::pair<VkPhysicalDevice, uint32_t>>& a, const std::pair<std::string, std::pair<VkPhysicalDevice, uint32_t>>& b)
-                                       {
+                                       [](const std::pair<std::string, std::pair<VkPhysicalDevice, uint32_t>> &a,
+                                          const std::pair<std::string, std::pair<VkPhysicalDevice, uint32_t>> &b) {
                                            return a.second.second < b.second.second;
                                        });
 
     Log::Info("Best device found: {}", bestDevice->first.c_str());
-    mVideoCard = bestDevice->second.first;
+    mPhysicalDevice = bestDevice->second.first;
 }
 
-VInstance::~VInstance() {
+GfxInstance::~GfxInstance() {
+#if defined(ENGINE_DEBUG)
+    if(mDebugMessenger)
+        vkDestroyDebugUtilsMessengerEXT(mInstance, mDebugMessenger, nullptr);
+    mDebugMessenger = VK_NULL_HANDLE;
+#endif
 
+    if(mInstance)
+        vkDestroyInstance(mInstance, nullptr);
+    mInstance = VK_NULL_HANDLE;
 }

@@ -27,7 +27,7 @@ SystemReport NativeApplication::OnInitialize() {
 
     Log::Verbose("Successfully initialized NativeApplication!");
 
-    VInstance* pInstance = new VInstance();
+    auto* pInstance = new VInstance();
     return SystemReport();
 }
 

@@ -5,7 +5,7 @@
 class SystemReport {
 public:
     SystemReport() = default;
-    SystemReport(const std::string_view& report);
+    explicit SystemReport(const std::string_view& report);
     ~SystemReport() = default;
 
     bool IsExitRequested();
